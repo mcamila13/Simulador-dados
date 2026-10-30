@@ -1,0 +1,231 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Simulador de Dados y Monedas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;800&display=swap">
+<style>
+/* Concepto: mesa de laboratorio. Tres (o dos) estaciones de prueba lado a lado, cada una con su gráfico en vivo, para comparar de un vistazo. */
+:root {
+  --bg: #f3f6fc; --surface: #ffffff; --fg: #1a2140; --muted: #5a6486; --line: #d9e0f0;
+  --accent: #3b5bdb; --accent-fg: #ffffff; --bar-bg: #eef2fb; --ref: #1a2140;
+  --c1: #2f7de1; --c1-fg: #ffffff; --c2: #f2a900; --c2-fg: #2a1d00; --c3: #14a06f; --c3-fg: #ffffff;
+  --shadow: 0 8px 24px rgba(26, 33, 64, .10);
+  --font-display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11152a; --surface: #1b2140; --fg: #eef1fb; --muted: #a2abc9; --line: #2e3560;
+    --accent: #8ea2ff; --accent-fg: #0f1430; --bar-bg: #232a4f; --ref: #eef1fb;
+    --c1: #4a93f0; --c2: #f5b82e; --c3: #2cc08a; --shadow: 0 8px 24px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11152a; --surface: #1b2140; --fg: #eef1fb; --muted: #a2abc9; --line: #2e3560;
+  --accent: #8ea2ff; --accent-fg: #0f1430; --bar-bg: #232a4f; --ref: #eef1fb;
+  --c1: #4a93f0; --c2: #f5b82e; --c3: #2cc08a; --shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.4;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.9rem, 5vw, 2.8rem); line-height: 1.05; margin: 0; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); font-weight: 700; }
+.bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.field { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+select, button { font: inherit; }
+select { background: var(--surface); color: var(--fg); border: 2px solid var(--line); border-radius: 10px; padding: 6px 10px; font-weight: 800; }
+.seg { display: inline-flex; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; color: var(--fg); padding: 8px 18px; font-weight: 800; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.check { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+button:focus-visible, select:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.panel { background: var(--surface); border: 2px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.tag { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; padding: 2px 16px; border-radius: 12px; }
+.total { font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chart { position: relative; display: flex; gap: 6px; align-items: flex-end; height: 190px; padding-top: 22px; border-bottom: 3px solid var(--line); }
+.col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.num { font-size: .78rem; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; line-height: 1.15; min-height: 2.3em; }
+.num small { display: block; color: var(--muted); font-weight: 700; }
+.fill { width: 100%; border-radius: 8px 8px 0 0; min-height: 2px; transition: height .35s ease; }
+.labels { display: flex; gap: 6px; }
+.labels span { flex: 1; text-align: center; font-weight: 800; font-family: var(--font-display); font-size: 1.15rem; min-width: 0; }
+.refline { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--ref); pointer-events: none; opacity: .7; }
+.refline span { position: absolute; right: 0; top: -1.4em; font-size: .72rem; font-weight: 800; background: var(--surface); padding: 0 4px; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.go { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 999px; padding: 8px 16px; font-weight: 800; cursor: pointer; font-variant-numeric: tabular-nums; }
+.clear { background: transparent; color: var(--muted); border: 2px solid var(--line); border-radius: 999px; padding: 6px 14px; font-weight: 700; cursor: pointer; }
+.note { background: var(--surface); border: 2px solid var(--line); border-radius: 14px; padding: 10px 14px; color: var(--muted); font-weight: 700; margin: 0; }
+details.teacher { background: var(--surface); border: 2px dashed var(--line); border-radius: 14px; padding: 10px 14px; }
+details.teacher summary { cursor: pointer; font-weight: 800; color: var(--accent); }
+.tw { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; min-width: 420px; width: 100%; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); font-weight: 700; }
+th { color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>Simulador de Dados y Monedas</h1>
+    <p class="sub">Clase 3 · OA 23 · En cada código hay un dado o una moneda que no es justo.</p>
+  </div>
+
+  <div class="bar">
+    <label class="field" for="code">Código del grupo
+      <select id="code"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+    </label>
+    <div class="seg" role="group" aria-label="Dados o monedas">
+      <button type="button" id="m-dice" aria-pressed="true">Dados</button>
+      <button type="button" id="m-coin" aria-pressed="false">Monedas</button>
+    </div>
+    <label class="check" for="ref"><input type="checkbox" id="ref"> Mostrar lo esperado (ayuda)</label>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="note">Pide a cada grupo que escriba su conjetura antes de lanzar y que anote en su bitácora después de cada ronda: 10, 100 y 1000 lanzamientos.</p>
+
+  <details class="teacher">
+    <summary>Solo docente: respuesta de cada código</summary>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Código</th><th>Dados</th><th>Monedas</th></tr></thead>
+        <tbody id="key"></tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<script>
+var DICE_KEY = { 1: ["A", 6], 2: ["B", 4], 3: ["C", 2], 4: ["A", 5], 5: ["B", 3], 6: ["C", 1] };
+var COIN_KEY = { 1: ["X", "cara", 0.65], 2: ["Y", "sello", 0.65], 3: ["X", "sello", 0.68], 4: ["Y", "cara", 0.68], 5: ["X", "cara", 0.70], 6: ["Y", "sello", 0.70] };
+var mode = "dice", code = 1, counts = {};
+var grid = document.getElementById("grid");
+var elCode = document.getElementById("code");
+var elRef = document.getElementById("ref");
+
+function items() {
+  if (mode === "dice") {
+    var k = DICE_KEY[code], out = [];
+    ["A", "B", "C"].forEach(function (n, i) {
+      var probs = [1/6, 1/6, 1/6, 1/6, 1/6, 1/6];
+      if (n === k[0]) { probs = [0.144, 0.144, 0.144, 0.144, 0.144, 0.144]; probs[k[1] - 1] = 0.28; }
+      out.push({ id: "D" + n, name: "Dado " + n, faces: ["1", "2", "3", "4", "5", "6"], probs: probs, color: i });
+    });
+    return out;
+  }
+  var c = COIN_KEY[code], res = [];
+  ["X", "Y"].forEach(function (n, i) {
+    var probs = [0.5, 0.5];
+    if (n === c[0]) { probs = c[1] === "cara" ? [c[2], 1 - c[2]] : [1 - c[2], c[2]]; }
+    res.push({ id: "C" + n, name: "Moneda " + n, faces: ["Cara", "Sello"], probs: probs, color: i });
+  });
+  return res;
+}
+
+function roll(probs) {
+  var r;
+  try { var a = new Uint32Array(1); crypto.getRandomValues(a); r = a[0] / 4294967296; } catch (e) { r = Math.random(); }
+  var acc = 0;
+  for (var i = 0; i < probs.length; i++) { acc += probs[i]; if (r < acc) return i; }
+  return probs.length - 1;
+}
+
+function add(item, n) {
+  var c = counts[item.id] || (counts[item.id] = item.faces.map(function () { return 0; }));
+  for (var i = 0; i < n; i++) c[roll(item.probs)]++;
+  render();
+}
+
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+function render() {
+  grid.innerHTML = "";
+  var list = items();
+  list.forEach(function (item) {
+    var c = counts[item.id] || item.faces.map(function () { return 0; });
+    var total = c.reduce(function (a, b) { return a + b; }, 0);
+    var scale = mode === "dice" ? 40 : 100;
+    var col = "var(--c" + (item.color + 1) + ")", fg = "var(--c" + (item.color + 1) + "-fg)";
+
+    var p = el("section", "panel");
+    var h = el("div", "ph");
+    var tag = el("span", "tag", item.name); tag.style.background = col; tag.style.color = fg;
+    h.appendChild(tag);
+    h.appendChild(el("span", "total", total + (total === 1 ? " lanzamiento" : " lanzamientos")));
+    p.appendChild(h);
+
+    var chart = el("div", "chart");
+    chart.setAttribute("role", "img");
+    chart.setAttribute("aria-label", item.name + ": " + item.faces.map(function (f, i) { return f + " " + c[i]; }).join(", "));
+    c.forEach(function (v, i) {
+      var pct = total ? (v / total) * 100 : 0;
+      var cl = el("div", "col");
+      var n = el("div", "num", total ? String(v) : "");
+      if (total) n.appendChild(el("small", null, pct.toFixed(1).replace(".", ",") + "%"));
+      var f = el("div", "fill"); f.style.height = Math.min(100, pct / scale * 100) * 0.78 + "%"; f.style.background = col;
+      cl.appendChild(n); cl.appendChild(f); chart.appendChild(cl);
+    });
+    if (elRef.checked) {
+      var exp = (1 / item.faces.length) * 100;
+      var rl = el("div", "refline"); rl.style.bottom = (exp / scale * 100) * 0.78 + "%";
+      rl.appendChild(el("span", null, "esperado " + exp.toFixed(1).replace(".", ",") + "%"));
+      chart.appendChild(rl);
+    }
+    p.appendChild(chart);
+
+    var lab = el("div", "labels");
+    item.faces.forEach(function (f) { lab.appendChild(el("span", null, f)); });
+    p.appendChild(lab);
+
+    var b = el("div", "btns");
+    [1, 10, 100, 1000].forEach(function (n) {
+      var g = el("button", "go", "+" + n); g.type = "button";
+      g.setAttribute("aria-label", "Lanzar " + item.name + " " + n + (n === 1 ? " vez" : " veces"));
+      g.addEventListener("click", function () { add(item, n); });
+      b.appendChild(g);
+    });
+    var r = el("button", "clear", "Borrar"); r.type = "button";
+    r.addEventListener("click", function () { delete counts[item.id]; render(); });
+    b.appendChild(r);
+    p.appendChild(b);
+    grid.appendChild(p);
+  });
+}
+
+function buildKey() {
+  var tb = document.getElementById("key");
+  for (var i = 1; i <= 6; i++) {
+    var tr = document.createElement("tr");
+    var d = DICE_KEY[i], c = COIN_KEY[i];
+    [String(i), "Dado " + d[0] + ": favorece el " + d[1], "Moneda " + c[0] + ": favorece " + c[1]].forEach(function (t) {
+      tr.appendChild(el("td", null, t));
+    });
+    tb.appendChild(tr);
+  }
+}
+
+function setMode(m) {
+  mode = m; counts = {};
+  document.getElementById("m-dice").setAttribute("aria-pressed", String(m === "dice"));
+  document.getElementById("m-coin").setAttribute("aria-pressed", String(m === "coin"));
+  render();
+}
+document.getElementById("m-dice").addEventListener("click", function () { setMode("dice"); });
+document.getElementById("m-coin").addEventListener("click", function () { setMode("coin"); });
+elCode.addEventListener("change", function () { code = Number(elCode.value); counts = {}; render(); });
+elRef.addEventListener("change", render);
+buildKey();
+render();
+</script>
+
+</body></html>
